@@ -3,6 +3,7 @@ using Pkg
 Pkg.activate(".")
 
 using BenchmarkTools
+using Profile
 using MAT
 using SymPy
 using Plots; gr(fmt=:png)
@@ -10,14 +11,10 @@ using Plots; gr(fmt=:png)
 #using PyPlot; pygui(true)
 #using Images
 using JLD
-using DifferentialEquations
 using DiffEqOperators
 #using DiffEqParamEstim
 #using DiffEqDevTools
-using DiffEqSensitivity
 using StaticArrays
-using OrdinaryDiffEq
-using LinearAlgebra
 using ODE
 using ODEInterface
 using ODEInterfaceDiffEq
@@ -39,7 +36,6 @@ using Test
 #using Unitful
 #using PhysicalConstants.CODATA2014
 
-################################################
 using DiffEqFlux, OrdinaryDiffEq, Flux, Optim, Plots
 using DiffEqSensitivity, DifferentialEquations
 using Zygote
@@ -52,7 +48,6 @@ using ProgressBars, Printf
 using Flux.Optimise: update!
 using Flux.Losses: mae, mse
 using BSON: @save, @load
-################################################
 
 using DiffResults
 using DataFrames
@@ -116,54 +111,54 @@ const EM    = read(file, "EM")
 const RE    = read(file, "RE")
 close(file)
 
-const om_e   = OMEGA[sw_sp,1]      # println("om_e = ",   om_e,   "\n") # ωₑ
-const om_x_e = OMEGA[sw_sp,2]      # println("om_x_e = ", om_x_e, "\n") # ωₓₑ
-const Be     = BE[sw_sp]           # println("Be = ",     Be,     "\n") # Bₑ
-const D      = ED[sw_sp]           # println("D = ",      D,      "\n")
-const CA     = CArr[sw_sp,:]       # println("CA = ",     CA,     "\n")
-const nA     = NArr[sw_sp,:]       # println("nA = ",     nA,     "\n")
-const l      = Int(QN[sw_sp,sw_o]) # println("l = ",      l,      "\n")
+const om_e   = OMEGA[sw_sp,1]
+const om_x_e = OMEGA[sw_sp,2]
+const Be     = BE[sw_sp]
+const D      = ED[sw_sp]
+const CA     = CArr[sw_sp,:]
+const nA     = NArr[sw_sp,:]
+const l      = Int(QN[sw_sp,sw_o])
 
 include("en_vibr.jl")
-const e_i = en_vibr() # println("eᵢ = ", e_i, "\n")
+const e_i = en_vibr()
 
 include("en_vibr_0.jl")
-const e_0 = en_vibr_0() # println("e₀ = ", e_0, "\n")
+const e_0 = en_vibr_0()
 
-const mu     = [MU[sw_sp] 0.5*MU[sw_sp]]*1e-3                                                  # println("mu = ", mu, "\n")
-const m      = mu / N_a                                                                        # println("m = ", m, "\n")
-const sigma0 = pi*R0[sw_sp,1]^2                                                                # println("sigma0 = ", sigma0, "\n")
-const r0     = [R0[sw_sp,1] 0.5*(R0[sw_sp,1]+R0[sw_sp,2])]                                     # println("r0 = ", r0, "\n")
-const em     = [EM[sw_sp,1] sqrt(EM[sw_sp,1]*EM[sw_sp,2]*R0[sw_sp,1]^6*R0[sw_sp,2]^6)/r0[2]^6] # println("em = ", em, "\n")
-const re     = RE[sw_sp]                                                                       # println("re = ", re, "\n")
+const mu     = [MU[sw_sp] 0.5*MU[sw_sp]]*1e-3
+const m      = mu / N_a
+const sigma0 = pi*R0[sw_sp,1]^2
+const r0     = [R0[sw_sp,1] 0.5*(R0[sw_sp,1]+R0[sw_sp,2])]
+const em     = [EM[sw_sp,1] sqrt(EM[sw_sp,1]*EM[sw_sp,2]*R0[sw_sp,1]^6*R0[sw_sp,2]^6)/r0[2]^6]
+const re     = RE[sw_sp]
 
 # ICs
-const p0  = 0.8*133.322 # println("p0 = ", p0, "\n")   # p₀
-const T0  = 300.        # println("T0 = ", T0, "\n")   # T₀
-const Tv0 = T0          # println("Tv0 = ", Tv0, "\n") # Tᵥ₀
-const M0  = 13.4        # println("M0 = ", M0, "\n")   # M₀
-const n0  = p0/(k*T0)   # println("n0 = ", n0, "\n")   # n₀
+const p0  = 0.8*133.322
+const T0  = 300.
+const Tv0 = T0
+const M0  = 13.4
+const n0  = p0/(k*T0)
 
 if xc[1] != 0
-  const gamma0 = 1.4 # println("gamma0 = ", gamma0, "\n") # γ₀
+  const gamma0 = 1.4
 else
-  const gamma0 = 5/3 # println("gamma0 = ", gamma0, "\n")
+  const gamma0 = 5/3
 end
 
-const rho0_c = m.*xc*n0              # println("rho0_c = ", rho0_c, "\n")
-const rho0   = sum(rho0_c)           # println("rho0 = ", rho0, "\n") # ρ₀
-const mu_mix = sum(rho0_c./mu)/rho0  # println("mu_mix = ", mu_mix, "\n")
-const R_bar  = Runi*mu_mix           # println("R_bar = ", R_bar, "\n")
-const a0     = sqrt(gamma0*R_bar*T0) # println("a0 = ", a0, "\n") # a₀
-const v0     = M0*a0                 # println("v0 = ", v0, "\n") # v₀
+const rho0_c = m.*xc*n0
+const rho0   = sum(rho0_c)
+const mu_mix = sum(rho0_c./mu)/rho0
+const R_bar  = Runi*mu_mix
+const a0     = sqrt(gamma0*R_bar*T0)
+const v0     = M0*a0
 
 include("in_con.jl")
 NN = in_con()
-n1 = NN[1] # println("n1 = ", n1, "\n")
-v1 = NN[2] # println("v1 = ", v1, "\n")
-T1 = NN[3] # println("T1 = ", T1, "\n")
+n1 = NN[1]
+v1 = NN[2]
+T1 = NN[3]
 
-const Zvibr_0 = sum(exp.(-e_i./Tv0./k)) # println("Zvibr_0 = ", Zvibr_0, "\n")
+const Zvibr_0 = sum(exp.(-e_i./Tv0./k))
 
 Y0_bar      = zeros(Float64, (l+3))
 Y0_bar[1:l] = xc[1]*n1/Zvibr_0*exp.(-e_i./Tv0./k)
@@ -219,9 +214,9 @@ using Profile
 
 prob = ODEProblem(rpart!, Y0_bar, xspan, 1.)
 #display(@benchmark DifferentialEquations.solve(prob, alg, reltol=1e-8, abstol=1e-8, save_everystep=true, progress=true))
-#sol  = DifferentialEquations.solve(prob, alg, reltol=1e-8, abstol=1e-8, save_everystep=true, progress=true)
+#@progress sol  = DifferentialEquations.solve(prob, alg, reltol=1e-8, abstol=1e-8, save_everystep=true, progress=true)
 
-@profile DifferentialEquations.solve(prob, alg, reltol=1e-8, abstol=1e-8, save_everystep=true, progress=true)
+@profile DifferentialEquations.solve(prob, alg, reltol=1e-4, abstol=1e-4, save_everystep=true, progress=true)
 Juno.profiler()
 Profile.clear()
 
@@ -229,45 +224,45 @@ ode_data = Array(sol)
 #println("sol: ", size(sol), "\n")
 
 
-X       = sol.t;                                                println("X = ", X, "\n", size(X), "\n")
-x_s     = X*Delta*100;                                          println("x_s = ", x_s, "\n")
-Temp    = sol[l+3,:]*T0;                                        println("Temp = ", Temp, "\n")
-v       = sol[l+2,:]*v0;                                        println("v = ", v, "\n")
-n_i     = sol[1:l,:]*n0;                                        println("n_i = ", n_i, "\n", "Size of n_i = ", size(n_i), "\n")
-n_a     = sol[l+1,:]*n0;                                        println("n_a = ", n_a, "\n", "Size of n_a = ", size(n_a), "\n")
-n_m     = sum(n_i,dims=1);                                      println("n_m = ", n_m, "\n", "Size of n_m = ", size(n_m), "\n")
-time_s  = X*Delta/v0;                                           println("time_s = ", time_s, "\n")
-Npoint  = length(X);                                            println("Npoint = ", Npoint, "\n")
-Nall    = sum(n_i,dims=1);                                      println("Nall = ", Nall, "\n", size(Nall), "\n")
-Nall    = Nall[1,:]+n_a;                                        println("Nall = ", Nall, "\n", size(Nall), "\n")
-#ni_n   = n_i ./ repeat(Nall,1,l);                              println("ni_n = ", ni_n, "\n") BUG
-#nm_n   = sum(ni_n,dims=2);                                     println("nm_n = ", nm_n, "\n")
-na_n    = n_a ./ Nall;                                          println("na_n = ", na_n, "\n")
-#rho    = m[1]*n_m + m[2]*n_a;                                  println("rho = ", rho, "\n")
-#p      = Nall .* k .* Temp;                                    println("p = ", p, "\n")
-#e_v    = repeat(e_i+e_0,Npoint,1) .* n_i;
-#e_v    = repeat(e_i+e_0,1,Npoint) .* n_i;
-#e_v    = sum(e_v,dims=2);                                      println("eᵥ = ", e_v, "\n")
-#e_v0   = n0*xc[1]/Zvibr_0*sum(exp.(-e_i./Tv0/k) .* (e_i+e_0)); println("eᵥ₀ = ", e_v0, "\n")
-#e_f    = 0.5*D*n_a*k;                                          println("e_f = ", e_f, "\n")
-#e_f0   = 0.5*D*xc[2]*n0*k;                                     println("e_f0 = ", e_f0, "\n")
-#e_tr   = 1.5*Nall*k .* Temp;                                   println("e_tr = ", e_tr, "\n")
-#e_tr0  = 1.5*n0*k .* T0;                                       println("e_tr0 = ", e_tr0, "\n")
-#e_rot  = n_m*k .* Temp;                                        println("e_rot = ", e_rot, "\n")
-#e_rot0 = n0*xc[1]*k .* T0;                                     println("e_rot0 = ", e_rot0, "\n")
-#E      = e_tr+e_rot+e_v+e_f;                                   println("E = ", E, "\n")
-#E0     = e_tr0+e_rot0+e_v0+e_f0;                               println("E0 = ", E0, "\n")
-#H      = (E+p) ./ rho;                                         println("H = ", H, "\n")
-#H0     = (E0+p0) ./ rho0;                                      println("H0 = ", H0, "\n")
-#u10    = rho0*v0;                                              println("u10 = ", u10, "\n")
-#u20    = rho0*v0^2+p0;                                         println("u20 = ", u20, "\n")
-#u30    = H0+v0^2/2;                                            println("u30 = ", u30, "\n")
-#u1     = u10-rho .* v;                                         println("u₁ = ", u1, "\n")
-#u2     = u20-rho .* v.^2-p;                                    println("u₂ = ", u2, "\n")
-#u3     = u30-H-v.^2/2;                                         println("u₃ = ", u3, "\n")
-#d1     = max(abs(u1)/u10);
-#d2     = max(abs(u2)/u20);
-#d3     = max(abs(u3)/u30);
+X       = sol.t
+x_s     = X*Delta*100
+Temp    = sol[l+3,:]*T0
+v       = sol[l+2,:]*v0
+n_i     = sol[1:l,:]*n0
+n_a     = sol[l+1,:]*n0
+n_m     = sum(n_i,dims=1)
+time_s  = X*Delta/v0
+Npoint  = length(X)
+Nall    = sum(n_i,dims=1)
+Nall    = Nall[1,:]+n_a
+#ni_n   = n_i ./ repeat(Nall,1,l) BUG
+#nm_n   = sum(ni_n,dims=2)
+na_n    = n_a ./ Nall
+#rho    = m[1]*n_m + m[2]*n_a
+#p      = Nall .* k .* Temp
+#e_v    = repeat(e_i+e_0,Npoint,1) .* n_i
+#e_v    = repeat(e_i+e_0,1,Npoint) .* n_i
+#e_v    = sum(e_v,dims=2)
+#e_v0   = n0*xc[1]/Zvibr_0*sum(exp.(-e_i./Tv0/k) .* (e_i+e_0))
+#e_f    = 0.5*D*n_a*k
+#e_f0   = 0.5*D*xc[2]*n0*k
+#e_tr   = 1.5*Nall*k .* Temp
+#e_tr0  = 1.5*n0*k .* T0
+#e_rot  = n_m*k .* Temp
+#e_rot0 = n0*xc[1]*k .* T0
+#E      = e_tr+e_rot+e_v+e_f
+#E0     = e_tr0+e_rot0+e_v0+e_f0
+#H      = (E+p) ./ rho
+#H0     = (E0+p0) ./ rho0
+#u10    = rho0*v0
+#u20    = rho0*v0^2+p0
+#u30    = H0+v0^2/2
+#u1     = u10-rho .* v
+#u2     = u20-rho .* v.^2-p
+#u3     = u30-H-v.^2/2
+#d1     = max(abs(u1)/u10)
+#d2     = max(abs(u2)/u20)
+#d3     = max(abs(u3)/u30)
 #
 #display("Relative error of conservation law of:");
 #println("mass = ", d1);
