@@ -166,10 +166,8 @@ Y0_bar[l+1] = xc[2]*n1
 Y0_bar[l+2] = v1
 Y0_bar[l+3] = T1
 
-# println("Y0_bar = ", Y0_bar, "\n", size(Y0_bar), "\n", typeof(Y0_bar), "\n")
-
-const Delta = 1/(sqrt(2)*n0*sigma0)  # println("Delta = ", Delta, "\n")
-xspan       = Float64[0.0, x_w]./Delta # println("xspan = ", xspan, "\n", size(xspan), "\n")
+const Delta = 1/(sqrt(2)*n0*sigma0)
+xspan       = Float64[0.0, x_w]./Delta
 
 #xspan = Float32[0.0, datasize * tstep];
 #xsteps = range(xspan[1], xspan[2], length=datasize);
@@ -210,19 +208,15 @@ alg = radau()
 #alg = alg_hints=[:stiff]
 #alg = BS3()
 
-using Profile
-
 prob = ODEProblem(rpart!, Y0_bar, xspan, 1.)
 #display(@benchmark DifferentialEquations.solve(prob, alg, reltol=1e-8, abstol=1e-8, save_everystep=true, progress=true))
-#@progress sol  = DifferentialEquations.solve(prob, alg, reltol=1e-8, abstol=1e-8, save_everystep=true, progress=true)
+sol  = DifferentialEquations.solve(prob, alg, reltol=1e-8, abstol=1e-8, save_everystep=true, progress=true)
 
-@profile DifferentialEquations.solve(prob, alg, reltol=1e-4, abstol=1e-4, save_everystep=true, progress=true)
-Juno.profiler()
-Profile.clear()
+#@profile DifferentialEquations.solve(prob, alg, reltol=1e-4, abstol=1e-4, save_everystep=true, progress=true)
+#Juno.profiler()
+#Profile.clear()
 
 ode_data = Array(sol)
-#println("sol: ", size(sol), "\n")
-
 
 X       = sol.t
 x_s     = X*Delta*100
